@@ -192,7 +192,7 @@ class RadialSystem:
 		c = 2 * pi * self.baseRadius;
 		x = a * c / 2 + repetition * c;
 		
-		return self.matrix @ Vector((x,p.y,Vector((p.x,p.z)).length - self.baseRadius));
+		return self.matrix @ Vector((x,p.y,self.baseRadius - Vector((p.x,p.z)).length));
 
 
 class TubeMatch:

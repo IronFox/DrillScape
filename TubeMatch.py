@@ -32,12 +32,19 @@ def toVector3(vec4):
 
 
 class AABB:
-	
+	"""Axis-aligned bounding box"""
 	vmin = Vector((float('inf'), float('inf'), float('inf')))
 	vmax = Vector((float('-inf'), float('-inf'), float('-inf')))
 	
 	
 	def includeOne(self, p):
+		"""Grows the local instance so that it includes the given point
+		
+		Parameters
+		----------
+		p : Vector
+			A point to include in the local bounding box
+		"""
 		self.vmin = Vector((
 				min(self.vmin[0], p[0]),
 				min(self.vmin[1], p[1]),
@@ -50,14 +57,42 @@ class AABB:
 		))
 		
 	def includeAll(self, points):
+		"""Grows the local instance so that it includes every given point
+		
+		Parameters
+		----------
+		points : Vector[]
+			A sequence of points to include in the local bounding box
+		"""
 		for p in points:
 			self.includeOne(p);
 	def center(self):
+		"""Calculates a 3D center vector of the local instance
+		
+		Returns
+		-------
+		Vector
+			The local center
+		"""
 		return (self.vmax + self.vmin) / 2.0;
 	
 	def size(self):
+		"""Calculates a 3D size vector of the local instance
+		
+		Returns
+		-------
+		Vector
+			The local diameter returned as a vector
+		"""
 		return (self.vmax - self.vmin);
 	def maxSize(self):
+		"""Calculates the maxmimum diameter along any primary axis.
+		
+		Returns
+		-------
+		float
+			The maximum diameter of the local instance along the X, Y, and Z axes.
+		"""
 		size = self.size();
 		return max(max(size.x, size.y),size.z);
 	

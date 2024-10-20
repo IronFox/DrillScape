@@ -30,13 +30,41 @@ def toVector3(vec4):
 	return v;
 
 
+class Range:
+	"""Axis range"""
+	def __init__(self):
+		self.vmin = float('inf');
+		self.vmax = float('-inf');
+	
+	def include(self, v):
+		self.vmin = min(self.vmin,v);
+		self.vmax = max(self.vmax,v);
+		
+	def getCenter(self):
+	
+		rs = (self.vmax + self.vmin)/2;
+		return rs;
+		
+	def getDiameter(self):
+		return self.vmax - self.vmin;
+		
+	def __str__(self):
+		return '['+str(round(self.vmin,2))+'..'+str(round(self.vmax,2))+']';
+		
+	center = property(getCenter)
+	diameter = property(getDiameter)
 
 class AABB:
 	"""Axis-aligned bounding box"""
-	vmin = Vector((float('inf'), float('inf'), float('inf')))
-	vmax = Vector((float('-inf'), float('-inf'), float('-inf')))
 	
+	def __init__(self):
+		self.x = Range();
+		self.y = Range();
+		self.z = Range();
 	
+	def __str__(self):
+		return '('+str(self.x)+','+str(self.y)+','+str(self.z)+')';
+
 	def includeOne(self, p):
 		"""Grows the local instance so that it includes the given point
 		
@@ -45,16 +73,10 @@ class AABB:
 		p : Vector
 			A point to include in the local bounding box
 		"""
-		self.vmin = Vector((
-				min(self.vmin[0], p[0]),
-				min(self.vmin[1], p[1]),
-				min(self.vmin[2], p[2])
-		))
-		self.vmax = Vector((
-				max(self.vmax[0], p[0]),
-				max(self.vmax[1], p[1]),
-				max(self.vmax[2], p[2])
-		))
+		
+		self.x.include(p.x);
+		self.y.include(p.y);
+		self.z.include(p.z);
 		
 	def includeAll(self, points):
 		"""Grows the local instance so that it includes every given point
@@ -66,7 +88,7 @@ class AABB:
 		"""
 		for p in points:
 			self.includeOne(p);
-	def center(self):
+	def getCenter(self):
 		"""Calculates a 3D center vector of the local instance
 		
 		Returns
@@ -74,9 +96,9 @@ class AABB:
 		Vector
 			The local center
 		"""
-		return (self.vmax + self.vmin) / 2.0;
+		return Vector((self.x.center, self.y.center, self.z.center));
 	
-	def size(self):
+	def getSize(self):
 		"""Calculates a 3D size vector of the local instance
 		
 		Returns
@@ -84,8 +106,8 @@ class AABB:
 		Vector
 			The local diameter returned as a vector
 		"""
-		return (self.vmax - self.vmin);
-	def maxSize(self):
+		return Vector((self.x.diameter, self.y.diameter, self.z.diameter));
+	def getMaxSize(self):
 		"""Calculates the maxmimum diameter along any primary axis.
 		
 		Returns
@@ -93,8 +115,12 @@ class AABB:
 		float
 			The maximum diameter of the local instance along the X, Y, and Z axes.
 		"""
-		size = self.size();
-		return max(max(size.x, size.y),size.z);
+		return max(max(self.x.diameter, self.y.diameter),self.z.diameter);
+		
+	center = property(getCenter)
+	size = property(getSize)
+	maxSize = property(getMaxSize)
+		
 	
 class RadialSystem:
 	"""A system with the given primary axis pointing along the Y axis, and Z as close to up as possible
@@ -220,10 +246,10 @@ class TubeMatch:
 	debugBoxSizes: float
 		The size of debug boxes created during approx(True)
 	"""
-	pointLine = []
+	
 
-	obj = None;
-	bb = AABB();
+	
+	
 	resLine = 50;
 	resCircle1 = 8;
 	resCircle2 = 360;
@@ -236,16 +262,20 @@ class TubeMatch:
 		obj : Blender object
 			The object to unroll
 		"""
+		self.pointLine = [];
+		self.bb = AABB();
+		
+		
 		if obj is None:
-			print("Please select an object.")
-			return
+			raise Exception("Please select an object.")
 
 		self.obj = obj;
 		self.bb.includeAll([obj.matrix_world @ v.co for v in obj.data.vertices]);
 
-		# Calculate box dimensions based on bounding box
-		self.box_center = self.bb.center();
-		self.box_size = self.bb.size(); 
+		self.debugBoxSizes = self.bb.maxSize / 100;
+
+		self.box_center = self.bb.center;
+		self.box_size = self.bb.size; 
 
 	def unroll(self, numRepeat=1):
 		"""Unrolls the original geometry offset along the Y axis such that it appears next to the original.
@@ -263,11 +293,12 @@ class TubeMatch:
 		vertexes = [];
 		polygons = [];
 		mapToOldPolygons = [];
-		space = self.regressPointLineToSpace();
+		space = self.regressPointLineToRadialSystem();
 		#bpy.ops.mesh.primitive_cube_add(location=Vector((0,0,0)), scale=Vector((1.0,100.0,1.0)));
 		#bpy.context.object.matrix_world = space.matrix.copy();
 		numVertexes = len(self.obj.data.vertices);
-		print ('numVertexes ',numVertexes);
+		print ('Input geometry vertex count:',numVertexes);
+		print ('Input geometry polygon count:',len(self.obj.data.polygons));
 		for r in range(numRepeat):
 			for v in self.obj.data.vertices:
 				vtx = space.unroll(self.obj.matrix_world @ v.co,r);
@@ -297,7 +328,7 @@ class TubeMatch:
 					polygons.append(polygon);
 					mapToOldPolygons.append(p);
 				else:
-					print('skipped ',p);
+					print('Skipped polygon during unroll:',[x for x in p.vertices]);
 		
 		#print(polygons);
 		mesh = bpy.data.meshes.new('UnrolledMesh');
@@ -321,7 +352,6 @@ class TubeMatch:
 		mesh.update()
 		
 		bpy.context.collection.objects.link(newObj)
-		print(newObj);
 						
 			
 
@@ -359,7 +389,7 @@ class TubeMatch:
 		return ureduce,y,e, z
 	
 	
-	def regressPointLineToSpace(self):
+	def regressPointLineToRadialSystem(self):
 		"""Computes an radial system based on the last determined axial center line.
 		
 		Points of the center line with a recorded radius <50% or >200% of the median radius are disregarded
@@ -379,6 +409,14 @@ class TubeMatch:
 			minY=numpy.min(z),
 			maxY=numpy.max(z),
 			baseRadius=median);
+
+	def debugCreateCenterLine(self):
+		"""Places a streched box in the scene along the current center line approximation"""
+		space = self.regressPointLineToRadialSystem();
+		w = self.bb.maxSize / 100;
+		bpy.ops.mesh.primitive_cube_add(location=Vector((0,0,0)), scale=Vector((w,(space.maxY - space.minY)/2,w)));
+		bpy.context.object.matrix_world = space.matrix.copy();
+
 
 	def refine(self, showCenterSpheres=False):
 		"""Computes a more precise center line based on any previously determined center line using radial ray casts.
@@ -408,15 +446,16 @@ class TubeMatch:
 			return;
 		obj = self.obj;
 		if (len(self.pointLine) > 0):
-			print('Creating space from existing');
-			space = self.regressPointLineToSpace();
+			print('Creating radial system from existing center line ( num points =',len(self.pointLine),')');
+			space = self.regressPointLineToRadialSystem();
 			self.pointLine = [];
 		else:
+			print('Creating radial system along center Y axis');
 			space = RadialSystem(
 				origin=self.box_center,
 				primaryAxis=Vector((0,1,0)),
-				minY = self.bb.vmin.y - self.box_center.y,
-				maxY = self.bb.vmax.y - self.box_center.y,
+				minY = self.bb.y.vmin - self.box_center.y,
+				maxY = self.bb.y.vmax - self.box_center.y,
 				baseRadius = 1 #don't know
 				);
 
@@ -462,8 +501,8 @@ class TubeMatch:
 					
 			if complete:
 				if useBoundingBoxes:
-					p = obj.matrix_world @  bb.center();
-					size = bb.maxSize();
+					p = obj.matrix_world @  bb.center;
+					size = bb.maxSize;
 				else:
 					p = obj.matrix_world @  (centerSum / sampleCount);
 					size = radiusSum / sampleCount;
@@ -474,8 +513,9 @@ class TubeMatch:
 						bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=4, location=p, radius=size);
 					else:
 						bpy.ops.mesh.primitive_cube_add(location=p, scale=Vector((1.0,1.0,1.0)));
+		print('Produced new center line:',str(len(self.pointLine)),'points');
 	
-	def approx(self, placeBoxes = False): 
+	def approx(self, placeBoxes = False, placeCenterObjects = False): 
 		""" Computes an approximate center line based on the previously determined center line using radial ray casts.
 		
 		If no previous center line exists, the bounding box center world Y axis is used.
@@ -491,13 +531,15 @@ class TubeMatch:
 		placeBoxes : bool
 			If true, debug boxes are created at each ray intersection
 		"""
-		self.advance(self.resLine,self.resCircle1,True, placeBoxes, False, False);
+		self.advance(self.resLine,self.resCircle1,True, placeBoxes, placeCenterObjects, False);
 		
 
 tm = TubeMatch(bpy.context.object);	#Work with the currently selected object
 tm.approx();	#Approximate once using bounding boxes
+#tm.debugCreateCenterLine();
 #tm.approx();
 tm.refine();	#Refine the center axis using lots of ray casts
+#tm.debugCreateCenterLine();
 #tm.refine();
 tm.unroll(3);	#Unroll the mesh using the current axis three times
 

@@ -494,10 +494,10 @@ class TubeMatch:
 		self.advance(self.resLine,self.resCircle1,True, placeBoxes, False, False);
 		
 
-tm = TubeMatch(bpy.context.object);
-tm.approx();
+tm = TubeMatch(bpy.context.object);	#Work with the currently selected object
+tm.approx();	#Approximate once using bounding boxes
 #tm.approx();
-tm.refine();
+tm.refine();	#Refine the center axis using lots of ray casts
 #tm.refine();
-tm.unroll(3);
+tm.unroll(3);	#Unroll the mesh using the current axis three times
 

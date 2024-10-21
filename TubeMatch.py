@@ -421,7 +421,7 @@ class TubeMatch:
 	def refine(self, showCenterSpheres=False):
 		"""Computes a more precise center line based on any previously determined center line using radial ray casts.
 		
-		If no previous center line exists, the bounding box center world Y axis is used.
+		If no previous center line exists, the world Y axis is used.
 		For each point along the last detected center line, rays are cast in every axis-orthogonal direction with a 1 degree delta.
 		If all rays hit, the average of all intersections becomes the next center for this line sample.
 		Their average distance from ray origin becomes its next radius.
@@ -452,7 +452,7 @@ class TubeMatch:
 		else:
 			print('Creating radial system along center Y axis');
 			space = RadialSystem(
-				origin=self.box_center,
+				origin=Vector((0,self.box_center.y,0)),
 				primaryAxis=Vector((0,1,0)),
 				minY = self.bb.y.vmin - self.box_center.y,
 				maxY = self.bb.y.vmax - self.box_center.y,
@@ -518,7 +518,7 @@ class TubeMatch:
 	def approx(self, placeBoxes = False, placeCenterObjects = False): 
 		""" Computes an approximate center line based on the previously determined center line using radial ray casts.
 		
-		If no previous center line exists, the bounding box center world Y axis is used.
+		If no previous center line exists, the world Y axis is used.
 		For each point along the last detected center line, rays are cast in every axis-orthogonal direction with a 45 degree delta.
 		If all rays hit, the center of the bounding box containing all intersections becomes the next center for this line sample.
 		The maximum of the bounding box width/height/depth becomes its next radius.
